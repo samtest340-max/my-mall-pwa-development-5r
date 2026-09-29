@@ -37,6 +37,14 @@ export default function Page() {
   const [syncState, setSyncState] = useState<'Online' | 'Offline' | 'Syncing…'>('Online')
   const [waiting, setWaiting] = useState(0)
   const [showDevSync, setShowDevSync] = useState(false)
+  const [employees, setEmployees] = useState([
+    { id: 'ada', name: 'Ada Nwosu', username: 'ada@greenbasket.ng', role: 'Manager', branches: 'Lekki, Ikeja', status: 'Active', login: 'Today, 09:42' },
+    { id: 'samuel', name: 'Samuel Okafor', username: 'samuel@greenbasket.ng', role: 'Cashier', branches: 'Lekki branch', status: 'Active', login: 'Today, 08:15' },
+    { id: 'ifeoma', name: 'Ifeoma Bello', username: 'ifeoma@greenbasket.ng', role: 'Accountant', branches: 'All branches', status: 'Active', login: 'Yesterday, 17:30' },
+    { id: 'chinedu', name: 'Chinedu Obi', username: 'chinedu@greenbasket.ng', role: 'Stock Keeper', branches: 'Ajah branch', status: 'Suspended', login: 'Sep 24, 14:10' },
+  ])
+  const [editingEmployee, setEditingEmployee] = useState<any>(null)
+  const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>({ Owner: ['Sales', 'Inventory', 'Customers', 'Accounting', 'Expenses', 'Staff'], Manager: ['Sales', 'Inventory', 'Customers', 'Accounting'], Cashier: ['Sales'], 'Stock Keeper': ['Inventory'], Accountant: ['Accounting', 'Expenses'] })
 
   useEffect(() => {
     const refresh = async () => setWaiting(await offlineDb.outbox.where('status').anyOf('pending', 'failed').count())
@@ -75,9 +83,12 @@ export default function Page() {
   const saveRecord = (data: any) => {
     if (modal === 'product') setProducts(current => [...current, { name: data.name, sku: `SKU-${Date.now()}`, category: data.category, cost: Number(data.cost), price: Number(data.price), stock: Number(data.quantity) }])
     if (modal === 'customer') setCustomers(current => [...current, { name: data.name, phone: data.phone, location: data.location, outstanding: Number(data.outstanding || 0) }])
+    if (modal === 'employee') setEmployees(current => [...current, { id: `employee-${Date.now()}`, name: data.name, username: data.username, role: data.role, branches: data.branches, status: data.status || 'Active', login: 'Never' }])
     setModal(null); showNotice('Record saved successfully')
   }
-  const content = active === 'Overview' ? <Overview go={go} /> : active === 'Point of Sale' ? <POS products={products} cart={cart} add={add} total={total} customer={customer} setCustomer={setCustomer} customers={customers} paid={paid} setPaid={setPaid} due={due} complete={complete} sales={sales} share={share} /> : active === 'Inventory' ? <Inventory products={filtered} query={query} setQuery={setQuery} onAdd={() => setModal('product')} /> : active === 'Customers' ? <Customers customers={customers} onAdd={() => setModal('customer')} /> : active === 'Credit & Debtors' ? <CreditBook customers={customers} onAdd={() => setModal('customer')} /> : active === 'Accounting' ? <Accounting sales={sales} /> : active === 'Expenses' ? <Expenses onSaved={showNotice} /> : active === 'Staff' ? <Staff onAdd={() => setModal('employee')} onAction={setOverlay} /> : active === 'Branches' ? <Branches onAction={setOverlay} /> : <Quotations onAction={showNotice} />
+  const saveEmployee = (data: any) => { setEmployees(current => current.map(employee => employee.id === data.id ? { ...employee, ...data } : employee)); setEditingEmployee(null); showNotice('Employee account updated') }
+  const updateRolePermission = (role: string, permission: string, enabled: boolean) => setRolePermissions(current => ({ ...current, [role]: enabled ? [...(current[role] || []), permission] : (current[role] || []).filter(item => item !== permission) }))
+  const content = active === 'Overview' ? <Overview go={go} /> : active === 'Point of Sale' ? <POS products={products} cart={cart} add={add} total={total} customer={customer} setCustomer={setCustomer} customers={customers} paid={paid} setPaid={setPaid} due={due} complete={complete} sales={sales} share={share} /> : active === 'Inventory' ? <Inventory products={filtered} query={query} setQuery={setQuery} onAdd={() => setModal('product')} /> : active === 'Customers' ? <Customers customers={customers} onAdd={() => setModal('customer')} /> : active === 'Credit & Debtors' ? <CreditBook customers={customers} onAdd={() => setModal('customer')} /> : active === 'Accounting' ? <Accounting sales={sales} /> : active === 'Expenses' ? <Expenses onSaved={showNotice} /> : active === 'Staff' ? <Staff employees={employees} onAdd={() => setModal('employee')} onAction={setOverlay} onManage={setEditingEmployee} /> : active === 'Branches' ? <Branches onAction={setOverlay} /> : <Quotations onAction={showNotice} />
 
   return <div className="min-h-screen bg-[#f7f9f6] text-[#1c2921]">
     {process.env.NODE_ENV === 'development' && <div className="pointer-events-none fixed bottom-4 right-4 z-40 w-72"><div className="pointer-events-none rounded-2xl border border-[#dce8dc] bg-white p-4 text-xs shadow-xl"><div className="flex items-center justify-between"><b>Offline sync</b><button onClick={() => setShowDevSync(value => !value)} className="pointer-events-auto text-[#387a4f]">{showDevSync ? 'Hide' : 'Inspect'}</button></div>{showDevSync && <div className="mt-3 flex flex-col gap-2"><div>Network: {navigator.onLine ? 'online' : 'offline'}</div><div>Outbox: {waiting} changes</div><button onClick={() => { setSyncState('Syncing…'); void syncNow().then(() => setWaiting(0)) }} className="rounded-lg bg-[#387a4f] px-3 py-2 font-semibold text-white">Force sync</button></div>}</div></div>}
