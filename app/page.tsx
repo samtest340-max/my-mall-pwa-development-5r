@@ -59,8 +59,20 @@ export default function Page() {
   const router = useRouter()
 
   useEffect(() => {
-    createClient().auth.getSession().then(({ data }) => { if (!data.session) router.replace('/login'); else setSessionReady(true) })
-    const { data: listener } = createClient().auth.onAuthStateChange((_event, session) => { if (!session) router.replace('/login') })
+    const supabase = createClient()
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) { router.replace('/login'); return }
+      const { data: profile } = await supabase.from('profiles').select('business_id, full_name').eq('user_id', data.session.user.id).maybeSingle()
+      if (profile?.full_name) setAdminName(profile.full_name)
+      if (profile?.business_id) {
+        const { data: business } = await supabase.from('businesses').select('name, logo_url').eq('id', profile.business_id).maybeSingle()
+        if (business) { setBusinessName(business.name || 'Green Basket Mart'); setLogo(business.logo_url || '') }
+        const channel = supabase.channel(`business-settings-${profile.business_id}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'businesses', filter: `id=eq.${profile.business_id}` }, payload => { const next = payload.new as { name?: string; logo_url?: string | null }; setBusinessName(next.name || 'Green Basket Mart'); setLogo(next.logo_url || '') }).subscribe()
+        setSessionReady(true)
+      }
+      setSessionReady(true)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { if (!session) router.replace('/login') })
     return () => listener.subscription.unsubscribe()
   }, [router])
 
