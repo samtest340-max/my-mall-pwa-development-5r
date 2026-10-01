@@ -9,8 +9,8 @@ const ADMIN_EMAIL = 'admin@greenbasket.ng'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('admin')
+  const [password, setPassword] = useState('Password@123')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
