@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowRight, LockKeyhole, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-const ADMIN_EMAIL = 'admin@greenbasket.ng'
+const ADMIN_EMAIL = 'sammyfemi18@gmail.com'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -18,7 +18,12 @@ export default function LoginPage() {
     event.preventDefault()
     setBusy(true)
     setError('')
-    const email = username.trim().toLowerCase() === 'admin' ? ADMIN_EMAIL : username.trim()
+    const isAdminLogin = username.trim().toLowerCase() === 'admin'
+    if (isAdminLogin) {
+      const bootstrap = await fetch('/api/auth/admin-login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username, password }) })
+      if (!bootstrap.ok) { setError('Invalid username or password. Please try again.'); setBusy(false); return }
+    }
+    const email = isAdminLogin ? ADMIN_EMAIL : username.trim()
     const { error: authError } = await createClient().auth.signInWithPassword({ email, password })
     if (authError) setError('Invalid username or password. Please try again.')
     else router.replace('/')
