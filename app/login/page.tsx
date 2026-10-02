@@ -9,8 +9,8 @@ const ADMIN_EMAIL = 'sammyfemi18@gmail.com'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('Password@123')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
