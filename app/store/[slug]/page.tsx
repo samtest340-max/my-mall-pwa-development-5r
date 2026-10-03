@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Search, ShoppingBag, Share2, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-type StoreProduct = { id: string; name: string; price: number; oldPrice: number; description: string; sku: string | null }
+type StoreProduct = { id: string; name: string; price: number; oldPrice: number; description: string; sku: string | null; stock: number }
 const fallback: StoreProduct[] = []
 const money = (value: number) => `₦${value.toLocaleString('en-NG')}`
 
@@ -18,14 +18,16 @@ export default function Storefront({ params }: { params: Promise<{ slug: string 
     let channel: ReturnType<typeof supabase.channel> | undefined
     async function load() {
       const { data: settings } = await supabase.from('store_settings').select('business_id,description').eq('store_slug', slug).maybeSingle()
-      const businessId = settings?.business_id || '00000000-0000-0000-0000-000000000001'
-      const { data: business } = await supabase.from('businesses').select('name').eq('id', businessId).maybeSingle()
-      if (business?.name) setBusinessName(business.name)
-      const { data } = await supabase.from('products').select('id,name,sku,sell_price,cost_price,active').eq('business_id', businessId).eq('active', true).is('deleted_at', null).order('created_at', { ascending: false })
-      setProducts((data ?? []).map((item: any) => ({ id: item.id, name: item.name, sku: item.sku, price: Number(item.sell_price || 0), oldPrice: Number(item.sell_price || 0), description: item.sku ? `SKU ${item.sku}` : 'Available from our store.' })))
-      channel = supabase.channel(`public-store-${businessId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `business_id=eq.${businessId}` }, (payload) => {
+      const businessId = settings?.business_id
+      const businessQuery = businessId ? supabase.from('businesses').select('id,name').eq('id', businessId).maybeSingle() : supabase.from('businesses').select('id,name').ilike('name', slug.replaceAll('-', ' ')).maybeSingle()
+      const { data: business } = await businessQuery
+      if (!business?.id) return
+      if (business.name) setBusinessName(business.name)
+      const { data } = await supabase.from('products').select('id,name,sku,sell_price,active,category_id').eq('business_id', business.id).eq('active', true).is('deleted_at', null).order('created_at', { ascending: false })
+      setProducts((data ?? []).map((item: any) => ({ id: item.id, name: item.name, sku: item.sku, price: Number(item.sell_price || 0), oldPrice: Number(item.sell_price || 0), stock: 0, description: item.sku ? `SKU ${item.sku}` : 'Available from our inventory.' })))
+      channel = supabase.channel(`public-store-${business.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `business_id=eq.${business.id}` }, (payload) => {
         const item = (payload.new || payload.old) as any
-        setProducts(current => payload.eventType === 'DELETE' || item.deleted_at || !item.active ? current.filter(product => product.id !== item.id) : [{ id: item.id, name: item.name, sku: item.sku, price: Number(item.sell_price || 0), oldPrice: Number(item.sell_price || 0), description: item.sku ? `SKU ${item.sku}` : 'Available from our store.' }, ...current.filter(product => product.id !== item.id)])
+        setProducts(current => payload.eventType === 'DELETE' || item.deleted_at || !item.active ? current.filter(product => product.id !== item.id) : [{ id: item.id, name: item.name, sku: item.sku, price: Number(item.sell_price || 0), oldPrice: Number(item.sell_price || 0), stock: 0, description: item.sku ? `SKU ${item.sku}` : 'Available from our inventory.' }, ...current.filter(product => product.id !== item.id)])
       }).subscribe()
     }
     void load()
