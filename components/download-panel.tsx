@@ -22,7 +22,7 @@ const fields: Record<string, string[]> = {
   Expenses: ['Description', 'Category', 'Amount', 'Date', 'Recorded by'],
 }
 
-export function DownloadPanel({ active, close, selectPage, download }: { active: string; close: () => void; selectPage: (page: string) => void; download?: () => void }) {
+export function DownloadPanel({ active, close, selectPage, rows = [] }: { active: string; close: () => void; selectPage: (page: string) => void; rows?: Record<string, string | number>[] }) {
   const pages = Object.keys(pageDescriptions)
   const [selected, setSelected] = useState<string[]>(fields[active] || [])
   const currentFields = useMemo(() => fields[active] || [], [active])
@@ -33,9 +33,12 @@ export function DownloadPanel({ active, close, selectPage, download }: { active:
     pdf.text(`${active} report`, 16, 18)
     pdf.setFontSize(10)
     pdf.text(`Generated ${new Date().toLocaleString('en-NG')}`, 16, 26)
-    pdf.setFontSize(12)
-    selected.forEach((field, index) => pdf.text(`• ${field}`, 18, 40 + index * 8))
-    pdf.save(`${active.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-report.pdf`)
+    const columns = selected.filter(field => rows.length === 0 || Object.prototype.hasOwnProperty.call(rows[0], field))
+    pdf.setFontSize(9)
+    pdf.text(columns.join(' | ').slice(0, 180) || 'No matching fields selected', 16, 40)
+    rows.forEach((row, index) => { const y = 48 + index * 6; if (y < 285) pdf.text(columns.map(column => String(row[column] ?? '')).join(' | ').slice(0, 180), 16, y) })
+    if (!rows.length) pdf.text('No records available for this section.', 16, 50)
+    pdf.save(`${active.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-report-${new Date().toISOString().replace(/[:.]/g, '-')}.pdf`)
     close()
   }
   const changePage = (page: string) => { selectPage(page); setSelected(fields[page] || []) }
