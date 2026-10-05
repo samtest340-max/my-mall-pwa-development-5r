@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Download, Search, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { FinanceExport } from '@/components/finance-export'
+import { SalePdfButton } from '@/components/sale-pdf-button'
 
-type HistoryRow = { id: string; soldAt: string; receipt: string; staff: string; customer: string; phone: string; quantity: number; unitPrice: number; total: number; paymentMethod: string; paymentStatus: string; branch: string }
+type HistoryRow = { id: string; saleId: string; soldAt: string; receipt: string; staff: string; customer: string; phone: string; quantity: number; unitPrice: number; total: number; paymentMethod: string; paymentStatus: string; branch: string }
 
 export function ProductHistory({ businessName, onClose }: { businessName: string; onClose?: () => void }) {
   const supabase = createClient()
@@ -30,9 +31,9 @@ export function ProductHistory({ businessName, onClose }: { businessName: string
     let cancelled = false
     const load = async () => {
       setLoading(true)
-      const { data } = await supabase.from('sale_items').select('id,qty,unit_price,line_total,created_at,sales(receipt_no,created_at,cashier_id,customer_id,branch_id),products(name,sku),customers(name,phone),branches(name)').eq('product_id', selected.id).order('created_at', { ascending: false })
+      const { data } = await supabase.from('sale_items').select('id,qty,unit_price,line_total,created_at,sales(id,receipt_no,created_at,cashier_id,customer_id,branch_id),products(name,sku),customers(name,phone),branches(name)').eq('product_id', selected.id).order('created_at', { ascending: false })
       if (!cancelled) {
-        setRows((data ?? []).map((item: any) => ({ id: item.id, soldAt: item.sales?.created_at || item.created_at, receipt: item.sales?.receipt_no || '—', staff: item.sales?.cashier_id || 'Staff', customer: item.customers?.name || 'Walk-in customer', phone: item.customers?.phone || '', quantity: Number(item.qty || 0), unitPrice: Number(item.unit_price || 0), total: Number(item.line_total || 0), paymentMethod: '—', paymentStatus: '—', branch: item.branches?.name || '—' })))
+        setRows((data ?? []).map((item: any) => ({ id: item.id, saleId: item.sales?.id, soldAt: item.sales?.created_at || item.created_at, receipt: item.sales?.receipt_no || '—', staff: item.sales?.cashier_id || 'Staff', customer: item.customers?.name || 'Walk-in customer', phone: item.customers?.phone || '', quantity: Number(item.qty || 0), unitPrice: Number(item.unit_price || 0), total: Number(item.line_total || 0), paymentMethod: '—', paymentStatus: '—', branch: item.branches?.name || '—' })))
         setLoading(false)
       }
     }
