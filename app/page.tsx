@@ -16,9 +16,9 @@ import { offlineDb } from '@/lib/offline-db'
 import { startSync, syncNow } from '@/lib/sync'
 
 type Module = 'Overview' | 'Point of Sale' | 'Inventory' | 'Order Supplies' | 'Customers' | 'Credit & Debtors' | 'Accounting' | 'Expenses' | 'Staff' | 'Branches' | 'Quotations' | 'Online Store'
-type Product = { name: string; sku: string; category: string; cost: number; price: number; stock: number; enteredAt?: string }
+type Product = { id?: string; name: string; sku: string; category: string; cost: number; price: number; stock: number; enteredAt?: string }
 type Customer = { name: string; phone: string; location: string; outstanding: number; createdAt?: string }
-type Sale = { id: string; customer: string; total: number; paid: number; date: string; createdAt?: string }
+type Sale = { id: string; customer: string; total: number; paid: number; date: string; createdAt?: string; databaseId?: string }
 type Overlay = 'audit' | 'devices' | 'roles' | 'branch' | null
 
 const money = (n: number) => `₦${n.toLocaleString('en-NG')}`
@@ -59,14 +59,29 @@ export default function Page() {
   const [logo, setLogo] = useState('')
   const [downloadOpen, setDownloadOpen] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [branchId, setBranchId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) { router.replace('/login'); return }
-      const { data: profile } = await supabase.from('profiles').select('business_id, full_name').eq('user_id', data.session.user.id).maybeSingle()
+      setUserId(data.session.user.id)
+      const { data: profile } = await supabase.from('profiles').select('business_id, branch_id, full_name').eq('user_id', data.session.user.id).maybeSingle()
       if (profile?.full_name) setAdminName(profile.full_name)
+      if (profile?.business_id) { setBusinessId(profile.business_id); setBranchId(profile.branch_id)
+        const [{ data: productRows }, { data: customerRows }, { data: saleRows }, { data: stockRows }] = await Promise.all([
+          supabase.from('products').select('id,name,sku,category_id,cost_price,sell_price,created_at').eq('business_id', profile.business_id).is('deleted_at', null).order('created_at', { ascending: false }),
+          supabase.from('customers').select('id,name,phone,address,created_at').eq('business_id', profile.business_id).is('deleted_at', null).order('created_at', { ascending: false }),
+          supabase.from('sales').select('id,receipt_no,customer_id,total,occurred_at,created_at,payments(amount)').eq('business_id', profile.business_id).is('deleted_at', null).order('occurred_at', { ascending: false }).limit(500),
+          supabase.from('stock_movements').select('product_id,qty_delta').eq('business_id', profile.business_id).is('deleted_at', null),
+        ])
+        const stockByProduct = new Map<string, number>(); (stockRows ?? []).forEach((row: any) => stockByProduct.set(row.product_id, (stockByProduct.get(row.product_id) || 0) + Number(row.qty_delta || 0))); setProducts((productRows ?? []).map((item: any) => ({ id: item.id, name: item.name, sku: item.sku || item.id, category: item.category_id || 'General', cost: Number(item.cost_price || 0), price: Number(item.sell_price || 0), stock: stockByProduct.get(item.id) || 0, enteredAt: item.created_at })))
+        setCustomers((customerRows ?? []).map((item: any) => ({ name: item.name, phone: item.phone || '', location: item.address || '', outstanding: 0, createdAt: item.created_at })))
+        setSales((saleRows ?? []).map((item: any) => ({ id: item.receipt_no || item.id, customer: item.customer_id || 'Walk-in customer', total: Number(item.total || 0), paid: (item.payments ?? []).reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0), date: new Date(item.occurred_at).toLocaleDateString('en-NG'), createdAt: item.created_at, databaseId: item.id } as Sale & { databaseId: string })))
+      }
       if (profile?.business_id) {
         const { data: business } = await supabase.from('businesses').select('name, logo_url').eq('id', profile.business_id).maybeSingle()
         if (business) { setBusinessName(business.name || 'Your business'); setLogo(business.logo_url || '') }
@@ -98,10 +113,20 @@ export default function Page() {
   const go = (module: string) => { setActive(module as Module); setMobileNav(false) }
   const showNotice = (message: string) => { setNotice(message); setAuditLogs(current => [{ id: crypto.randomUUID(), action: message, at: new Date().toLocaleString('en-NG') }, ...current].slice(0, 100)); window.setTimeout(() => setNotice(''), 2600) }
   const add = (product: Product) => setCart(current => current.some(item => item.product.sku === product.sku) ? current.map(item => item.product.sku === product.sku ? { ...item, qty: item.qty + 1 } : item) : [...current, { product, qty: 1 }])
-  const complete = () => {
+  const complete = async () => {
     const amountPaid = Number(paid || 0)
     if (!cart.length || amountPaid < 0 || amountPaid > total) return showNotice('Enter a valid payment amount')
-    const sale = { id: `SALE-${Date.now()}`, customer, total, paid: amountPaid, date: new Date().toLocaleDateString('en-NG'), createdAt: new Date().toLocaleString('en-NG') }
+    const saleId = crypto.randomUUID()
+    const sale = { id: `SALE-${Date.now()}`, customer, total, paid: amountPaid, date: new Date().toLocaleDateString('en-NG'), createdAt: new Date().toLocaleString('en-NG'), databaseId: saleId }
+    const supabase = createClient()
+    if (businessId && branchId) {
+      const customerRow = customer !== 'Walk-in customer' ? customers.find(item => item.name === customer) : null
+      const receiptNo = sale.id
+      const { error } = await supabase.from('sales').insert({ id: saleId, business_id: businessId, branch_id: branchId, receipt_no: receiptNo, customer_id: customerRow ? undefined : null, cashier_id: userId, subtotal: total, discount: 0, tax: 0, total, occurred_at: new Date().toISOString() })
+      if (error) return showNotice('Sale could not be saved')
+      await supabase.from('payments').insert({ id: crypto.randomUUID(), business_id: businessId, sale_id: saleId, customer_id: customerRow ? undefined : null, branch_id: branchId, method: 'cash', kind: 'sale', amount: amountPaid })
+      await supabase.from('sale_items').insert(cart.map(item => ({ id: crypto.randomUUID(), business_id: businessId, sale_id: saleId, product_id: item.product.id, qty: item.qty, unit_price: item.product.price, unit_cost: item.product.cost, line_total: item.product.price * item.qty })))
+    }
     setSales(current => [sale, ...current])
     setProducts(current => current.map(product => { const line = cart.find(item => item.product.sku === product.sku); return line ? { ...product, stock: Math.max(0, product.stock - line.qty) } : product }))
     if (customer !== 'Walk-in customer' && due) setCustomers(current => current.map(item => item.name === customer ? { ...item, outstanding: item.outstanding + due } : item))
@@ -114,8 +139,8 @@ export default function Page() {
     showNotice('Receipt copied or ready to share')
   }
   const saveRecord = (data: any) => {
-    if (modal === 'product') setProducts(current => [...current, { name: data.name, sku: `SKU-${Date.now()}`, category: data.category, cost: Number(data.cost), price: Number(data.price), stock: Number(data.quantity), enteredAt: new Date().toLocaleString('en-NG') }])
-    if (modal === 'customer') setCustomers(current => [...current, { name: data.name, phone: data.phone, location: data.location, outstanding: Number(data.outstanding || 0), createdAt: new Date().toLocaleString('en-NG') }])
+    if (modal === 'product') { const productId = crypto.randomUUID(); const sku = `SKU-${Date.now()}`; setProducts(current => [...current, { id: productId, name: data.name, sku, category: data.category, cost: Number(data.cost), price: Number(data.price), stock: Number(data.quantity), enteredAt: new Date().toISOString() }]); if (businessId) void createClient().from('products').insert({ id: productId, business_id: businessId, name: data.name, sku, cost_price: Number(data.cost), sell_price: Number(data.price) }).then(async ({ error }) => { if (error) return showNotice('Product could not be saved'); if (branchId && Number(data.quantity)) await createClient().from('stock_movements').insert({ id: crypto.randomUUID(), business_id: businessId, branch_id: branchId, product_id: productId, qty_delta: Number(data.quantity), type: 'opening', reason: 'Initial stock' }) }) }
+    if (modal === 'customer') { const customerId = crypto.randomUUID(); setCustomers(current => [...current, { name: data.name, phone: data.phone, location: data.location, outstanding: Number(data.outstanding || 0), createdAt: new Date().toISOString() }]); if (businessId) void createClient().from('customers').insert({ id: customerId, business_id: businessId, name: data.name, phone: data.phone, address: data.location }).then(({ error }) => { if (error) showNotice('Customer could not be saved') }) }
     if (modal === 'employee') setEmployees(current => [...current, { id: `employee-${Date.now()}`, name: data.name, username: data.username, role: data.role, branches: data.branches, status: data.status || 'Active', login: 'Never' }])
     setModal(null); showNotice('Record saved successfully')
   }
