@@ -66,7 +66,7 @@ export default function Page() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(async ({ data }: { data: any }) => {
       if (!data.session) { router.replace('/login'); return }
       setUserId(data.session.user.id)
       const { data: profile } = await supabase.from('profiles').select('business_id, branch_id, full_name').eq('user_id', data.session.user.id).maybeSingle()
@@ -85,12 +85,12 @@ export default function Page() {
       if (profile?.business_id) {
         const { data: business } = await supabase.from('businesses').select('name, logo_url').eq('id', profile.business_id).maybeSingle()
         if (business) { setBusinessName(business.name || 'Your business'); setLogo(business.logo_url || '') }
-        const channel = supabase.channel(`business-settings-${profile.business_id}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'businesses', filter: `id=eq.${profile.business_id}` }, payload => { const next = payload.new as { name?: string; logo_url?: string | null }; setBusinessName(next.name || 'Green Basket Mart'); setLogo(next.logo_url || '') }).subscribe()
+        const channel = supabase.channel(`business-settings-${profile.business_id}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'businesses', filter: `id=eq.${profile.business_id}` }, (payload: any) => { const next = payload.new as { name?: string; logo_url?: string | null }; setBusinessName(next.name || 'Green Basket Mart'); setLogo(next.logo_url || '') }).subscribe()
         setSessionReady(true)
       }
       setSessionReady(true)
     })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { if (!session) router.replace('/login') })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => { if (!session) router.replace('/login') })
     return () => listener.subscription.unsubscribe()
   }, [router])
 
@@ -139,8 +139,8 @@ export default function Page() {
     showNotice('Receipt copied or ready to share')
   }
   const saveRecord = (data: any) => {
-    if (modal === 'product') { const productId = crypto.randomUUID(); const sku = `SKU-${Date.now()}`; setProducts(current => [...current, { id: productId, name: data.name, sku, category: data.category, cost: Number(data.cost), price: Number(data.price), stock: Number(data.quantity), enteredAt: new Date().toISOString() }]); if (businessId) void createClient().from('products').insert({ id: productId, business_id: businessId, name: data.name, sku, cost_price: Number(data.cost), sell_price: Number(data.price) }).then(async ({ error }) => { if (error) return showNotice('Product could not be saved'); if (branchId && Number(data.quantity)) await createClient().from('stock_movements').insert({ id: crypto.randomUUID(), business_id: businessId, branch_id: branchId, product_id: productId, qty_delta: Number(data.quantity), type: 'opening', reason: 'Initial stock' }) }) }
-    if (modal === 'customer') { const customerId = crypto.randomUUID(); setCustomers(current => [...current, { name: data.name, phone: data.phone, location: data.location, outstanding: Number(data.outstanding || 0), createdAt: new Date().toISOString() }]); if (businessId) void createClient().from('customers').insert({ id: customerId, business_id: businessId, name: data.name, phone: data.phone, address: data.location }).then(({ error }) => { if (error) showNotice('Customer could not be saved') }) }
+    if (modal === 'product') { const productId = crypto.randomUUID(); const sku = `SKU-${Date.now()}`; setProducts(current => [...current, { id: productId, name: data.name, sku, category: data.category, cost: Number(data.cost), price: Number(data.price), stock: Number(data.quantity), enteredAt: new Date().toISOString() }]); if (businessId) void createClient().from('products').insert({ id: productId, business_id: businessId, name: data.name, sku, cost_price: Number(data.cost), sell_price: Number(data.price) }).then(async ({ error }: { error: any }) => { if (error) return showNotice('Product could not be saved'); if (branchId && Number(data.quantity)) await createClient().from('stock_movements').insert({ id: crypto.randomUUID(), business_id: businessId, branch_id: branchId, product_id: productId, qty_delta: Number(data.quantity), type: 'opening', reason: 'Initial stock' }) }) }
+    if (modal === 'customer') { const customerId = crypto.randomUUID(); setCustomers(current => [...current, { name: data.name, phone: data.phone, location: data.location, outstanding: Number(data.outstanding || 0), createdAt: new Date().toISOString() }]); if (businessId) void createClient().from('customers').insert({ id: customerId, business_id: businessId, name: data.name, phone: data.phone, address: data.location }).then(({ error }: { error: any }) => { if (error) showNotice('Customer could not be saved') }) }
     if (modal === 'employee') setEmployees(current => [...current, { id: `employee-${Date.now()}`, name: data.name, username: data.username, role: data.role, branches: data.branches, status: data.status || 'Active', login: 'Never' }])
     setModal(null); showNotice('Record saved successfully')
   }

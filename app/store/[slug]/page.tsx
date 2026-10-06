@@ -24,7 +24,7 @@ export default function Storefront({ params }: { params: Promise<{ slug: string 
       const { data } = await supabase.from('products').select('id,name,sku,sell_price,image_url,active').eq('business_id', business.id).eq('active', true).is('deleted_at', null).order('created_at', { ascending: false })
       const map = (item: any): StoreProduct => ({ id: item.id, name: item.name, sku: item.sku, price: Number(item.sell_price || 0), imageUrl: item.image_url || null, description: item.sku ? `SKU ${item.sku}` : 'Available from our inventory.' })
       setProducts((data ?? []).map(map))
-      channel = supabase.channel(`public-store-${business.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `business_id=eq.${business.id}` }, payload => { const item = (payload.new || payload.old) as any; setProducts(current => payload.eventType === 'DELETE' || item.deleted_at || !item.active ? current.filter(product => product.id !== item.id) : [map(item), ...current.filter(product => product.id !== item.id)]) }).subscribe()
+      channel = supabase.channel(`public-store-${business.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `business_id=eq.${business.id}` }, (payload: any) => { const item = (payload.new || payload.old) as any; setProducts(current => payload.eventType === 'DELETE' || item.deleted_at || !item.active ? current.filter(product => product.id !== item.id) : [map(item), ...current.filter(product => product.id !== item.id)]) }).subscribe()
     }
     void load()
     return () => { if (channel) void supabase.removeChannel(channel) }
