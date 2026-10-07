@@ -30,15 +30,17 @@ export default function LoginPage() {
     setBusy(false)
   }
 
-  return <main className="flex min-h-screen items-center justify-center bg-[#eef6ee] p-6">
-    <div className="grid w-full max-w-4xl overflow-hidden rounded-[28px] border border-[#d8e8d8] bg-white shadow-2xl md:grid-cols-2">
+  return <main className="relative flex min-h-screen w-full max-w-[100vw] items-center justify-center overflow-hidden bg-[#edf5ee] p-4 sm:p-6">
+    <div className="pointer-events-none absolute -left-24 -top-24 size-72 rounded-full bg-[#cce5cf]/70 blur-3xl" />
+    <div className="pointer-events-none absolute -bottom-32 -right-24 size-80 rounded-full bg-[#f4dfbd]/60 blur-3xl" />
+    <div className="glass-panel relative grid w-full max-w-4xl overflow-hidden rounded-[30px] border-white/70 md:grid-cols-2">
       <div className="hidden bg-gradient-to-br from-[#1f5b37] via-[#2f7047] to-[#6da66e] p-10 text-white md:block">
         <div className="flex size-12 items-center justify-center rounded-2xl bg-white/15"><Store /></div>
         <p className="mt-20 text-sm font-semibold uppercase tracking-[0.2em] text-[#d5ebd7]">My Mall workspace</p>
         <h1 className="mt-4 text-4xl font-bold tracking-tight">Run your business with clarity.</h1>
         <p className="mt-5 max-w-sm text-sm leading-7 text-[#e0f0e1]">Secure access for administrators and staff across every branch.</p>
       </div>
-      <div className="p-7 sm:p-10">
+      <div className="bg-white/45 p-6 sm:p-10">
         <div className="mb-8 md:hidden"><div className="flex size-11 items-center justify-center rounded-2xl bg-[#2f7047] text-white"><Store /></div></div>
         <h2 className="text-3xl font-bold tracking-tight text-[#183022]">Welcome back</h2>
         <p className="mt-2 text-sm text-[#7d8980]">Sign in to your dashboard.</p>

@@ -155,15 +155,20 @@
 
 @layer base {
   * { @apply border-border outline-ring/50; }
-  body { @apply bg-background text-foreground; font-family: Arial, Helvetica, sans-serif; }
-  button, input, select, textarea { font: inherit; }
+  html, body { min-width: 0; max-width: 100%; overflow-x: hidden; }
+  body { @apply bg-background text-foreground; min-height: 100vh; font-family: Arial, Helvetica, sans-serif; background: #eef5ee; }
+  button, input, select, textarea { font: inherit; max-width: 100%; }
+  input, select, textarea { min-width: 0; }
+  * { scrollbar-width: thin; scrollbar-color: #b8cfba transparent; }
   ::selection { background: #cfe7d1; color: #1d2b22; }
 }
 
 @layer utilities {
-  .dashboard-shell { background: radial-gradient(circle at 82% -10%, rgba(209, 233, 210, .7), transparent 32%), linear-gradient(135deg, #f8fbf7 0%, #f4f7f2 48%, #fbfaf5 100%); }
-  .dashboard-card { box-shadow: 0 18px 45px rgba(45, 78, 55, .055), 0 2px 8px rgba(45, 78, 55, .035); }
-  .dashboard-card:hover { box-shadow: 0 22px 55px rgba(45, 78, 55, .09), 0 3px 10px rgba(45, 78, 55, .045); }
+  .dashboard-shell { min-width: 0; overflow-x: hidden; background: radial-gradient(circle at 82% -10%, rgba(192, 224, 198, .72), transparent 32%), radial-gradient(circle at 10% 35%, rgba(255, 255, 255, .85), transparent 28%), linear-gradient(135deg, #f6fbf6 0%, #edf5ee 48%, #f8f7f0 100%); }
+  .dashboard-card { box-shadow: 12px 12px 28px rgba(53, 83, 60, .08), -10px -10px 24px rgba(255, 255, 255, .78), inset 0 1px 0 rgba(255, 255, 255, .75); }
+  .dashboard-card:hover { box-shadow: 16px 16px 34px rgba(45, 78, 55, .11), -10px -10px 25px rgba(255, 255, 255, .9), inset 0 1px 0 rgba(255, 255, 255, .8); }
+  .glass-panel { border: 1px solid rgba(255,255,255,.68); background: rgba(255,255,255,.58); box-shadow: 0 18px 45px rgba(37,76,48,.08), inset 0 1px 0 rgba(255,255,255,.75); backdrop-filter: blur(20px); }
+  .soft-control { border: 1px solid #d9e7da; background: rgba(255,255,255,.72); box-shadow: inset 2px 2px 5px rgba(54,87,61,.06), inset -2px -2px 5px rgba(255,255,255,.9); }
 }
 
 @media print {
